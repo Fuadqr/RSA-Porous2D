@@ -158,9 +158,6 @@ RSA-Porous2D: an open-source generator of two-dimensional polydisperse circular-
 porous media for pore-scale CFD and CFD-DEM simulation. SoftwareX. Manuscript in preparation.
 ```
 
-## License
-
-A standard open-source software license should be included in the repository, such as MIT, BSD-3-Clause, Apache-2.0, or GPL-3.0. For SoftwareX submission, avoid using a Creative Commons license as the main code license.
 
 ## Contact
 
