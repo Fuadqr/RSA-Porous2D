@@ -1,21 +1,54 @@
 cff-version: 1.2.0
-message: "If you use this code, please cite it as below."
+message: "If you use RSA-Porous2D in your research, please cite it using the metadata below."
+title: "RSA-Porous2D: an open-source generator of two-dimensional polydisperse circular-grain porous media for pore-scale CFD and CFD-DEM simulation"
+type: software
+version: "1.0.0"
+date-released: "2026-06-12"
+license: MIT
+repository-code: "https://github.com/Fuadqr/RSA-Porous2D"
+abstract: "RSA-Porous2D is an open-source Python tool for generating reproducible two-dimensional porous media composed of polydisperse circular grains. It supports controlled grain-size distributions, porosity targets, pore-throat controls, heterogeneous regions, automatic pore-throat analysis, solver-ready exports, and an optional PySide6 graphical user interface."
+keywords:
+  - random sequential adsorption
+  - porous media
+  - pore-scale modelling
+  - CFD-DEM
+  - throat analysis
+  - Python
 authors:
-- family-names: "Alqrinawi"
-  given-names: "Fuad"
-  orcid: https://orcid.org/0009-0001-2847-0560
-- family-names: "Kelleher"
-  given-names: "Liam"
-  orcid: "https://orcid.org/0000-0001-6392-8875"
-- family-names: "Haverson"
-  given-names: "Lee"
-- family-names: "Schneidewind"
-  given-names: "Uwe"
-  orcid: "https://orcid.org/0000-0002-4523-7429"
-- family-names: "Krause"
-  given-names: "Stefan"
-  orcid: "https://orcid.org/0000-0003-2521-2248"  
-title: "Raman Analyzer"
-version: 1.0.0
-date-released: 2024-01-15
-url: "https://github.com/Fuadqr/Raman-Analyzer-V1.0"
+  - family-names: Alqrinawi
+    given-names: Fuad
+    email: f.y.m.alqrinawi@bham.ac.uk
+    affiliation: "School of Geography, Earth and Environmental Sciences, University of Birmingham, United Kingdom"
+  - family-names: Fraga
+    given-names: Bruño
+    affiliation: "Department of Civil Engineering, University of Birmingham, United Kingdom"
+  - family-names: Schneidewind
+    given-names: Uwe
+    affiliation: "School of Geography, Earth and Environmental Sciences, University of Birmingham, United Kingdom"
+  - family-names: Comer-Warner
+    given-names: Sophie
+    affiliation: "School of Geography, Earth and Environmental Sciences, University of Birmingham, United Kingdom"
+  - family-names: Lynch
+    given-names: Iseult
+    affiliation: "School of Geography, Earth and Environmental Sciences, University of Birmingham, United Kingdom"
+  - family-names: Krause
+    given-names: Stefan
+    affiliation: "School of Geography, Earth and Environmental Sciences, University of Birmingham, United Kingdom"
+preferred-citation:
+  type: article
+  title: "RSA-Porous2D: an open-source generator of two-dimensional polydisperse circular-grain porous media for pore-scale CFD and CFD-DEM simulation"
+  journal: SoftwareX
+  year: 2026
+  authors:
+    - family-names: Alqrinawi
+      given-names: Fuad
+    - family-names: Fraga
+      given-names: Bruño
+    - family-names: Schneidewind
+      given-names: Uwe
+    - family-names: Comer-Warner
+      given-names: Sophie
+    - family-names: Lynch
+      given-names: Iseult
+    - family-names: Krause
+      given-names: Stefan
