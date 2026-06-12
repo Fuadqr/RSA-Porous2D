@@ -2,7 +2,7 @@
 
 **RSA-Porous2D** is an open-source Python tool for generating reproducible two-dimensional porous media composed of polydisperse circular grains. It uses random sequential adsorption (RSA) to create controlled grain packings with user-defined grain-size distributions, target porosity, pore-throat controls, and heterogeneous regions.
 
-The software is intended for pore-scale CFD and CFD–DEM workflows where idealised but controllable porous-media geometries are needed. Generated geometries can be exported as solver-ready grain-centre files, including a constant out-of-plane coordinate for use in three-dimensional immersed-boundary solvers.
+The software is intended for pore-scale CFD and CFD-DEM workflows where idealised but controllable porous-media geometries are needed. Generated geometries can be exported as solver-ready grain-centre files, including a constant out-of-plane coordinate for use in three-dimensional immersed-boundary solvers.
 
 ## Main features
 
@@ -32,7 +32,15 @@ RSA-Porous2D/
 ├── rsa_porous_media_gui.py   # Optional PySide6 graphical user interface
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # Project documentation
-└── LICENSE                   # Open-source software license
+├── CITATION.cff              # Citation metadata
+├── LICENSE                   # MIT license
+└── docs/
+    └── images/
+        ├── Workflow.PNG      # Software workflow figure
+        ├── soft.png          # Homogeneous soft throat-control example
+        ├── Strict.png        # Homogeneous hard/strict throat-control example
+        ├── Layer.png         # Layered heterogeneity example
+        └── Polygon.png       # Polygon heterogeneity example
 ```
 
 ## Installation
@@ -40,7 +48,7 @@ RSA-Porous2D/
 Clone the repository:
 
 ```bash
-git clone https://github.com/<your-username>/RSA-Porous2D.git
+git clone https://github.com/Fuadqr/RSA-Porous2D.git
 cd RSA-Porous2D
 ```
 
@@ -116,6 +124,28 @@ python rsa_porous_media_gui.py
 
 The GUI provides grouped input panels, live previews of the sampled grain-size distribution and domain layout, progress reporting, cancellation of active runs, visualisation of generated packings, throat-width histograms, and output-saving controls.
 
+## Workflow and example outputs
+
+The generation workflow starts from a user-defined configuration, followed by grain-size distribution construction and RSA packing. For heterogeneous cases, a layer or polygon-inclusion step is applied before pore-throat analysis. The final outputs include solver-ready geometry files, throat-width statistics, and optional overview figures.
+
+![Workflow of RSA-Porous2D](docs/images/Workflow.PNG)
+
+### Homogeneous media
+
+The examples below show homogeneous media generated with soft throat biasing and hard/strict throat control. The soft mode reduces the occurrence of narrow throats without enforcing a strict gap, while the hard mode enforces a minimum inter-grain clearance and can therefore produce a more open packing.
+
+| Soft throat control | Hard/strict throat control |
+|---|---|
+| ![Homogeneous soft throat-control example](docs/images/soft.png) | ![Homogeneous hard throat-control example](docs/images/Strict.png) |
+
+### Heterogeneous media
+
+RSA-Porous2D can also generate heterogeneous media using rectangular layers, patches, or polygon-defined inclusions with independent grain-size and porosity settings.
+
+| Layered heterogeneity | Polygon heterogeneity |
+|---|---|
+| ![Layered heterogeneous porous medium](docs/images/Layer.png) | ![Polygon heterogeneous porous medium](docs/images/Polygon.png) |
+
 ## Output files
 
 Depending on the selected options, RSA-Porous2D can write:
@@ -146,7 +176,7 @@ The `soft` throat mode reduces the occurrence of narrow throats but does not enf
 
 ## Scientific use case
 
-RSA-Porous2D is designed for controlled numerical experiments in pore-scale modelling. It is useful when researchers need repeatable geometry sets where porosity, grain-size distribution, throat width, and heterogeneity can be varied systematically. Typical applications include CFD, CFD–DEM, particle-transport simulations, numerical verification, sensitivity analysis, and idealised studies of layered or texturally heterogeneous porous media.
+RSA-Porous2D is designed for controlled numerical experiments in pore-scale modelling. It is useful when researchers need repeatable geometry sets where porosity, grain-size distribution, throat width, and heterogeneity can be varied systematically. Typical applications include CFD, CFD-DEM, particle-transport simulations, numerical verification, sensitivity analysis, and idealised studies of layered or texturally heterogeneous porous media.
 
 ## Citation
 
@@ -158,6 +188,11 @@ RSA-Porous2D: an open-source generator of two-dimensional polydisperse circular-
 porous media for pore-scale CFD and CFD-DEM simulation. SoftwareX. Manuscript in preparation.
 ```
 
+A `CITATION.cff` file is also provided so GitHub can display citation information automatically.
+
+## License
+
+RSA-Porous2D is released under the **MIT License**. See the `LICENSE` file for details.
 
 ## Contact
 
