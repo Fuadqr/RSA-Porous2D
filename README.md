@@ -188,8 +188,7 @@ If you use RSA-Porous2D in published work, please cite the associated SoftwareX 
 
 ```text
 Alqrinawi, F., Fraga, B., Schneidewind, U., Comer-Warner, S., Lynch, I., & Krause, S.
-RSA-Porous2D: an open-source generator of two-dimensional polydisperse circular-grain
-porous media for pore-scale CFD and CFD-DEM simulation. SoftwareX. Manuscript in preparation.
+RSA-Porous2D : a two-dimensional polydisperse circular-grain porous-media generator for pore-scale CFD and CFD-DEM simulations.
 ```
 
 A `CITATION.cff` file is also provided so GitHub can display citation information automatically.
