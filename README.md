@@ -140,7 +140,7 @@ The examples below show homogeneous media generated with soft throat biasing and
 
 | Soft throat control | Hard/strict throat control |
 |---|---|
-| ![Homogeneous soft throat-control example](docs/images/soft.png) | ![Homogeneous hard throat-control example](docs/images/Strict.png) |
+| ![Homogeneous soft throat-control example](docs/images/Strict.png) | ![Homogeneous hard throat-control example](docs/images/soft.png) |
 
 ### Heterogeneous media
 
