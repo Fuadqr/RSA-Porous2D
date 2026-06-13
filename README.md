@@ -16,7 +16,7 @@ The software is intended for pore-scale CFD and CFD-DEM workflows where idealise
 - Apply minimum pore-throat control using:
   - `none`: standard non-overlap RSA,
   - `soft`: biased placement to reduce narrow throats,
-  - `hard`: strict minimum inter-grain clearance.
+  - `strict`: strict minimum inter-grain clearance.
 - Generate homogeneous media or heterogeneous media with:
   - rectangular layers,
   - rectangular patches,
