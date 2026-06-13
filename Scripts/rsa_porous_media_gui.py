@@ -1,6 +1,12 @@
+"""RSA POROUS-MEDIA GENERATOR  --  PySide6 GUI  (modern layout)"""
+
 from __future__ import annotations
 
 import os
+os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
+os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
+
 import re
 import sys
 import time
@@ -11,20 +17,28 @@ import multiprocessing as mp
 from dataclasses import fields
 
 from PySide6.QtCore import (
-    Qt, QThread, QObject, Signal, Slot, QTimer,
+    Qt, QThread, QObject, Signal, Slot, QTimer, QPointF,
     QPropertyAnimation, QEasingCurve, QRect, QSequentialAnimationGroup,
     QVariantAnimation, Property, QUrl,
 )
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import (
+    QColor, QIcon, QPainter, QPen, QBrush, QRadialGradient, QLinearGradient,
+    QFont, QDesktopServices, QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QComboBox, QCheckBox,
     QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, QGroupBox, QScrollArea,
     QSplitter, QProgressBar, QTextEdit, QFileDialog, QMessageBox, QSizePolicy,
-    QTabWidget, QFrame, QToolButton, QStackedWidget, QGridLayout,
+    QTabWidget, QFrame, QToolButton, QStackedWidget, QGridLayout, QDialog,
 )
 
 import matplotlib
 matplotlib.use("QtAgg")
+matplotlib.rcParams.update({
+    "figure.dpi": 120,
+    "savefig.dpi": 220,
+    "font.family": "Segoe UI",
+})
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -98,10 +112,13 @@ COMBO_LABELS = {
         "homogeneous": "Homogeneous",
         "layer": "Heterogeneous",
     },
+    "throat_mode": {
+        "hard": "strict",
+    },
 }
 
 FIELD_LABELS = {
-    # Domain
+    # domain
     "width": "Domain width",
     "height": "Domain height",
     "y_fixed": "Fixed Y value",
@@ -109,7 +126,7 @@ FIELD_LABELS = {
     "z_origin": "Z origin",
     "snap_wall_enabled": "Snap grains to walls",
     "snap_wall_threshold": "Snap distance",
-    # Grains (matrix)
+    # grains (matrix)
     "dist_type": "Distribution function",
     "r_min": "Min radius",
     "r_max": "Max radius",
@@ -121,7 +138,7 @@ FIELD_LABELS = {
     "custom_radii": "Radii list",
     "custom_weights": "Weights list",
     "target_porosity": "Target porosity",
-    # Heterogeneity
+    # heterogeneity
     "medium_type": "Porous media",
     "layer_shape": "Shape",
     "layer_x_start": "X start",
@@ -143,7 +160,7 @@ FIELD_LABELS = {
     "rough_interface": "Rough interface (adaptive)",
     "interface_amplitude": "Amplitude (0 = auto)",
     "interface_freqs": "Frequencies (blank = auto)",
-    # Throat & output
+    # throat & output
     "throat_mode": "Throat mode",
     "min_throat": "Min throat width",
     "k_candidates": "Candidates per grain (K)",
@@ -154,7 +171,7 @@ FIELD_LABELS = {
     "run_throat_analysis": "Throat analysis",
     "throat_bin_width_um": "Histogram bin width",
     "make_plots": "Save overview figure",
-    # Run
+    # run
     "seed": "Random seed",
     "n_realizations": "Realisations",
     "n_workers": "Parallel workers (CLI)",
@@ -198,7 +215,6 @@ def _combo_value(widgets, name):
 def _is_heterogeneous_mode(value):
     return value == "layer"
 
-# sections (by title) hidden wholesale when not applicable
 SECTION_RULES = {
     "Lognormal": lambda w: w["dist_type"].currentText() == "lognormal",
     "Normal": lambda w: w["dist_type"].currentText() == "normal",
@@ -218,8 +234,6 @@ FIELD_RULES = {
     "layer_shape": lambda w: _combo_value(w, "medium_type") == "layer",
     "min_throat": lambda w: w["throat_mode"].currentText() in ("soft", "hard"),
     "k_candidates": lambda w: w["throat_mode"].currentText() in ("soft", "hard"),
-    # interface roughness is adaptive (grain-scale); the GUI exposes only the
-    # on/off toggle. The Config fields remain for programmatic overrides.
     "interface_amplitude": lambda w: False,
     "interface_freqs": lambda w: False,
     "layer_ln_sigma": lambda w: _combo_value(w, "layer_dist_type") == "lognormal",
@@ -246,9 +260,9 @@ QTabBar::tab {
     border-radius: 0px;
     border-bottom: 2px solid transparent;
 }
-QTabBar::tab:hover { color: #182230; background: #eef4ff; border-color: #d8e6ff; }
+QTabBar::tab:hover { color: #182230; background: #eceef2; border-color: #d6dae0; }
 QTabBar::tab:selected {
-    color: #1f5eff; background: #ffffff; border-color: #d9e2f2;
+    color: #374151; background: #ffffff; border-color: #d6dae0;
     border-bottom: 2px solid transparent;
 }
 QTabBar::tab:disabled { color: #b8c0cc; }
@@ -271,15 +285,15 @@ QWidget#canvasCard { background: #ffffff; border: 1px solid #dbe4f0; border-radi
 QLineEdit, QComboBox {
     background: #f8fafc; border: 1px solid #d8e1ee; border-radius: 0px;
     padding: 8px 11px; color: #182230; min-height: 20px;
-    selection-background-color: #2f6fed; selection-color: #ffffff;
+    selection-background-color: #374151; selection-color: #ffffff;
 }
 QLineEdit:hover, QComboBox:hover { border: 1px solid #b8c7dc; background: #ffffff; }
-QLineEdit:focus, QComboBox:focus { border: 1px solid #2f6fed; background: #ffffff; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #374151; background: #ffffff; }
 QLineEdit:disabled, QComboBox:disabled { color: #a8b2c1; background: #eef2f7; }
 QComboBox::drop-down { border: none; width: 26px; }
 QComboBox QAbstractItemView {
     background: #ffffff; border: 1px solid #dbe4f0; border-radius: 0px; padding: 5px;
-    selection-background-color: #eaf1ff; selection-color: #1f5eff; outline: none;
+    selection-background-color: #eceef2; selection-color: #374151; outline: none;
 }
 
 /* ---------- checkboxes ---------------------------------------------------- */
@@ -288,23 +302,23 @@ QCheckBox::indicator {
     width: 19px; height: 19px; border: 1px solid #b8c7dc;
     border-radius: 0px; background: #ffffff;
 }
-QCheckBox::indicator:hover { border: 1px solid #2f6fed; background: #f8fbff; }
-QCheckBox::indicator:checked { background: #2f6fed; border: 1px solid #2f6fed; }
+QCheckBox::indicator:hover { border: 1px solid #374151; background: #f7f8fa; }
+QCheckBox::indicator:checked { background: #374151; border: 1px solid #374151; }
 
 /* ---------- buttons ------------------------------------------------------- */
 QPushButton {
     background: #ffffff; border: 1px solid #d5dfec; border-radius: 0px;
     padding: 8px 15px; color: #344054; font-weight: 700;
 }
-QPushButton:hover { background: #f8fbff; border-color: #b8c7dc; }
-QPushButton:pressed { background: #eef4ff; }
+QPushButton:hover { background: #f7f8fa; border-color: #b8c7dc; }
+QPushButton:pressed { background: #eceef2; }
 QPushButton:disabled { color: #a8b2c1; background: #f1f5f9; border-color: #e2e8f0; }
 QPushButton#primary {
-    background: #2f6fed; border: none; color: #ffffff; font-weight: 800; padding: 10px 17px;
+    background: #374151; border: none; color: #ffffff; font-weight: 800; padding: 10px 17px;
 }
-QPushButton#primary:hover { background: #255ed6; }
-QPushButton#primary:pressed { background: #1f4fb4; }
-QPushButton#primary:disabled { background: #a9c2f7; color: #eef4ff; }
+QPushButton#primary:hover { background: #2c333d; }
+QPushButton#primary:pressed { background: #1f2530; }
+QPushButton#primary:disabled { background: #c2c7cf; color: #eceef2; }
 QPushButton#danger { background: #ffffff; color: #b42318; border: 1px solid #f2bbb6; }
 QPushButton#danger:hover { background: #fff1f0; }
 QPushButton#danger:disabled { background: #ffffff; color: #d99a94; border-color: #f3d6d3; }
@@ -314,7 +328,7 @@ QProgressBar {
     background: #e6edf6; border: none; border-radius: 0px;
     min-height: 9px; max-height: 9px;
 }
-QProgressBar::chunk { background: #2f6fed; border-radius: 0px; }
+QProgressBar::chunk { background: #374151; border-radius: 0px; }
 
 /* ---------- log / misc ---------------------------------------------------- */
 QTextEdit {
@@ -323,8 +337,8 @@ QTextEdit {
 }
 QScrollArea { border: none; background: transparent; }
 QToolButton { border: 1px solid transparent; color: #667085; font-weight: 700; padding: 5px 10px; border-radius: 0px; }
-QToolButton:hover { background: #eef4ff; color: #182230; border-color: #d8e6ff; }
-QToolButton:checked { color: #1f5eff; background: #ffffff; border-color: #dbe4f0; }
+QToolButton:hover { background: #eceef2; color: #182230; border-color: #d6dae0; }
+QToolButton:checked { color: #374151; background: #ffffff; border-color: #dbe4f0; }
 QStatusBar { background: #eef2f7; color: #667085; }
 QStatusBar::item { border: none; }
 QToolTip { background: #182230; color: #ffffff; border: none; padding: 7px 10px; border-radius: 0px; }
@@ -359,22 +373,52 @@ BADGE_STYLES = {
     "ok":   "background:#dcfce7; color:#166534;",
     "warn": "background:#fef3c7; color:#92400e;",
     "bad":  "background:#fee2e2; color:#991b1b;",
-    "run":  "background:#eaf1ff; color:#1f5eff;",
+    "run":  "background:#eceef2; color:#374151;",
 }
 
 
-def _app_icon_path():
+# directories to search for bundled assets, frozen or not. in a
+def _resource_dirs():
+    dirs = []
+    if getattr(sys, "frozen", False):
+        mp = getattr(sys, "_MEIPASS", None)
+        if mp:
+            dirs.append(mp)
+        dirs.append(os.path.dirname(os.path.abspath(sys.executable)))
     here = os.path.dirname(os.path.abspath(__file__))
-    for d in (here, os.path.dirname(here)):
-        p = os.path.join(d, "rsa_icon_white.ico")
-        if os.path.exists(p):
-            return p
+    dirs.append(here)
+    dirs.append(os.path.dirname(here))
+    out = []
+    for d in dirs:
+        if d and d not in out:
+            out.append(d)
+    return out
+
+
+# locate the application .ico: prefer rsa-porous2d.ico. searches the
+def _app_icon_path():
+    dirs = _resource_dirs()
+    for name in ("RSA-Porous2D.ico", "rsa_icon_white.ico"):
+        for d in dirs:
+            p = os.path.join(d, name)
+            if os.path.exists(p):
+                return p
+    for d in dirs:
         try:
             for name in sorted(os.listdir(d)):
                 if name.lower().endswith(".ico"):
                     return os.path.join(d, name)
         except OSError:
             pass
+    return None
+
+
+# high-resolution logo image for the welcome screen (bigger/crisper than
+def _hero_image_path():
+    for d in _resource_dirs():
+        p = os.path.join(d, "RSA_POROUS_IMAGE.png")
+        if os.path.exists(p):
+            return p
     return None
 
 
@@ -385,7 +429,6 @@ def _parse_tuple(text):
     return tuple(float(p) for p in text.replace(";", ",").split(",") if p.strip())
 
 
-# live "N=... phi=..." stats embedded in generator progress messages
 _PROGRESS_STATS_RE = re.compile(r"N=(\d+)\s+phi=([0-9.]+)")
 
 
@@ -394,8 +437,8 @@ def _progress_stats(msg):
     return f"N={m.group(1)} phi={m.group(2)}" if m else None
 
 
+# tqdm-style per-bar readout: '42% [00:07]  n=299 phi=0.412'.
 def _format_progress_detail(state, key, pct, stats, freeze=False):
-
     now = time.time()
     st = state.setdefault(key, {})
     if st.get("t0") is None:
@@ -413,13 +456,13 @@ def _format_progress_detail(state, key, pct, stats, freeze=False):
 
 
 class NoWheelComboBox(QComboBox):
-
+    """Combo box that ignores mouse-wheel changes so scroll areas keep scrolling."""
     def wheelEvent(self, event):
         event.ignore()
 
 
 class LazyResizeCanvas(FigureCanvas):
-
+    """FigureCanvas that DEBOUNCES resizes. The stock canvas re-renders the"""
 
     def __init__(self, fig):
         super().__init__(fig)
@@ -429,7 +472,7 @@ class LazyResizeCanvas(FigureCanvas):
         self._resize_defer.timeout.connect(self._apply_deferred_resize)
 
     def resizeEvent(self, event):
-        QWidget.resizeEvent(self, event)   # geometry bookkeeping only
+        QWidget.resizeEvent(self, event)
         self._resize_defer.start()
 
     def _apply_deferred_resize(self):
@@ -441,21 +484,18 @@ class Badge(QLabel):
     def __init__(self, text="-"):
         super().__init__(text)
         self.setObjectName("badge")
-        # Pulse by tweening the background COLOUR (pure stylesheet) rather than a
-        # QGraphicsOpacityEffect -- opacity effects render to an offscreen pixmap
-        # and are crash-prone when combined with other painting / teardown.
         self._pulse = QVariantAnimation(self)
         self._pulse.setDuration(1500)
-        self._pulse.setStartValue(QColor("#eaf1ff"))
-        self._pulse.setKeyValueAt(0.5, QColor("#d9e7ff"))
-        self._pulse.setEndValue(QColor("#eaf1ff"))
+        self._pulse.setStartValue(QColor("#eceef2"))
+        self._pulse.setKeyValueAt(0.5, QColor("#dfe2e7"))
+        self._pulse.setEndValue(QColor("#eceef2"))
         self._pulse.setLoopCount(-1)
         self._pulse.setEasingCurve(QEasingCurve.InOutSine)
         self._pulse.valueChanged.connect(self._apply_pulse)
         self.set_state("idle")
 
     def _apply_pulse(self, color):
-        self.setStyleSheet(f"background:{color.name()}; color:#1f5eff;")
+        self.setStyleSheet(f"background:{color.name()}; color:#374151;")
 
     def set_state(self, state, text=None):
         if text is not None:
@@ -469,7 +509,7 @@ class Badge(QLabel):
 
 
 class AnimatedProgressBar(QProgressBar):
-
+    """Progress bar whose value glides to its target instead of jumping, so"""
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         self._anim = QPropertyAnimation(self, b"value", self)
@@ -478,10 +518,8 @@ class AnimatedProgressBar(QProgressBar):
 
     def animate_to(self, value):
         if self.minimum() == 0 and self.maximum() == 0:
-            return  # busy marquee; nothing to interpolate
+            return
         self._anim.stop()
-        # value() can be -1 right after leaving indeterminate mode; clamp so an
-        # interrupted animation never leaves the bar resting at the sentinel.
         self._anim.setStartValue(max(0, self.value()))
         self._anim.setEndValue(int(value))
         self._anim.start()
@@ -495,8 +533,8 @@ class AnimatedProgressBar(QProgressBar):
 
 
 class TabUnderline(QWidget):
-
-    def __init__(self, tabbar, color="#2f6fed", height=3):
+    """A thin accent bar that slides under the active tab of a QTabBar. Uses a"""
+    def __init__(self, tabbar, color="#374151", height=3):
         super().__init__(tabbar)
         self._bar = tabbar
         self._h = height
@@ -540,11 +578,11 @@ class TabUnderline(QWidget):
 
 
 _BTN_TOKENS = {
-    "normal":  dict(bg="#ffffff", hover="#f8fbff", fg="#344054", border="#d5dfec",
+    "normal":  dict(bg="#ffffff", hover="#f7f8fa", fg="#344054", border="#d5dfec",
                     dis_bg="#f1f5f9", dis_fg="#a8b2c1", dis_border="#e2e8f0",
                     weight=700, pad="8px 15px"),
-    "primary": dict(bg="#2f6fed", hover="#255ed6", fg="#ffffff", border=None,
-                    dis_bg="#a9c2f7", dis_fg="#eef4ff", dis_border=None,
+    "primary": dict(bg="#374151", hover="#2c333d", fg="#ffffff", border=None,
+                    dis_bg="#c2c7cf", dis_fg="#eceef2", dis_border=None,
                     weight=800, pad="10px 17px"),
     "danger":  dict(bg="#ffffff", hover="#fff1f0", fg="#b42318", border="#f2bbb6",
                     dis_bg="#ffffff", dis_fg="#d99a94", dis_border="#f3d6d3",
@@ -553,7 +591,7 @@ _BTN_TOKENS = {
 
 
 class AnimatedButton(QPushButton):
-
+    """QPushButton whose hover background colour tweens smoothly instead of"""
     def __init__(self, text, variant="normal"):
         super().__init__(text)
         self._t = _BTN_TOKENS[variant]
@@ -595,8 +633,8 @@ class AnimatedButton(QPushButton):
         super().leaveEvent(e)
 
 
+# true if we are running inside a jupyter/spyder (zmq) kernel, where
 def _in_interactive_kernel():
-
     try:
         from IPython import get_ipython
         ip = get_ipython()
@@ -607,8 +645,8 @@ def _in_interactive_kernel():
         return False
 
 
+# use a separate process only when it is actually safe to spawn one.
 def _can_use_process():
-
     if _in_interactive_kernel():
         return False
     main_mod = sys.modules.get("__main__")
@@ -621,18 +659,16 @@ USE_PROCESS = _can_use_process()
 
 
 class GenWorker(QObject):
-
     progress = Signal(str, float, int, int)
     finished = Signal(list)
     failed = Signal(str)
-
     mode = Signal(str)
 
     def __init__(self, cfg: Config):
         super().__init__()
         self.cfg = cfg
-        self._cancel = False          
-        self._proc = None             
+        self._cancel = False
+        self._proc = None
         self._ctx = mp.get_context("spawn") if USE_PROCESS else None
         self._cancel_event = self._ctx.Event() if self._ctx is not None else None
 
@@ -662,20 +698,17 @@ class GenWorker(QObject):
             )
             self._proc.start()
         except Exception:
-            # Could not spawn (restricted env): fall back to threaded.
             self._run_threaded(seeds)
             return
 
         first = True
         while True:
             try:
-                item = q.get(timeout=0.2)   # blocks releasing the GIL -> UI free
+                item = q.get(timeout=0.2)
             except queue.Empty:
                 if not self._proc.is_alive():
-                    # Died without posting a result.
+                    # died without posting a result.
                     if first:
-                        # Never produced output -> likely a spawn problem; retry
-                        # threaded so the user still gets a result.
                         self._run_threaded(seeds)
                     else:
                         self.failed.emit("Worker process exited unexpectedly.")
@@ -699,9 +732,7 @@ class GenWorker(QObject):
                 self.failed.emit(item[1])
                 return
 
-    
     def _run_threaded(self, seeds):
-
         old_interval = sys.getswitchinterval()
         try:
             sys.setswitchinterval(0.001)
@@ -739,11 +770,11 @@ class GenWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("RSA Porous-Media Generator")
+        self.setWindowTitle("RSA-Porous2D")
         self.resize(1560, 920)
         self.widgets = {}
         self.labels = {}
-        self.sections = {}        # section title -> QGroupBox
+        self.sections = {}
         self.results = []
         self.cfg = DEFAULTS
         self.result_fig = None
@@ -767,11 +798,9 @@ class MainWindow(QMainWindow):
 
         root = QSplitter(Qt.Horizontal)
         root.setChildrenCollapsible(False)
-
         root.setOpaqueResize(False)
         root.addWidget(self._build_left())
         root.addWidget(self._build_right())
-
         root.setStretchFactor(0, 1)
         root.setStretchFactor(1, 2)
         root.setSizes([660, 880])
@@ -788,7 +817,6 @@ class MainWindow(QMainWindow):
         self._toggle_save(False)
 
     def showEvent(self, event):
-
         super().showEvent(event)
         if not getattr(self, "_shown_once", False):
             self._shown_once = True
@@ -801,7 +829,6 @@ class MainWindow(QMainWindow):
         self._reposition_log_overlay()
 
     def closeEvent(self, event):
-
         for b in (getattr(self, "badge_state", None),
                   getattr(self, "badge_phi", None),
                   getattr(self, "badge_throat", None)):
@@ -814,7 +841,6 @@ class MainWindow(QMainWindow):
             u = getattr(self, name, None)
             if u is not None:
                 u.reposition()
-
 
     def _build_left(self):
         panel = QWidget()
@@ -835,7 +861,7 @@ class MainWindow(QMainWindow):
         brand = QVBoxLayout()
         brand.setContentsMargins(0, 0, 0, 0)
         brand.setSpacing(0)
-        title = QLabel("RSA Porous Media")
+        title = QLabel("RSA-Porous2D")
         title.setObjectName("paneltitle")
         subtitle = QLabel("2D random-sequential-adsorption packing generator")
         subtitle.setObjectName("panelsub")
@@ -846,14 +872,14 @@ class MainWindow(QMainWindow):
         lay.addLayout(header)
 
         self.form_tabs = QTabWidget()
-        self.form_tabs.setDocumentMode(True)   # flat tabs, no Windows bevels
+        self.form_tabs.setDocumentMode(True)
         self.form_tabs.tabBar().setExpanding(False)
         self.form_tabs.tabBar().setUsesScrollButtons(True)
         for tab_name, sections in TABS:
             page = QWidget()
             boxes = []
             for sec_title, names in sections:
-                box = QGroupBox(sec_title.upper())   # uppercase eyebrow label
+                box = QGroupBox(sec_title.upper())
                 fl = QFormLayout(box)
                 fl.setLabelAlignment(Qt.AlignRight)
                 fl.setHorizontalSpacing(14)
@@ -867,7 +893,6 @@ class MainWindow(QMainWindow):
                 boxes.append((sec_title, box))
 
             if tab_name == "Heterogeneity":
-
                 cols = QHBoxLayout(page)
                 cols.setContentsMargins(2, 8, 8, 8)
                 cols.setSpacing(10)
@@ -882,7 +907,6 @@ class MainWindow(QMainWindow):
                 cols.addLayout(vleft, 1)
                 cols.addLayout(vright, 1)
             else:
-                # Single column; each box hugs its content (no dead space).
                 vbox = QVBoxLayout(page)
                 vbox.setContentsMargins(2, 8, 8, 8)
                 vbox.setSpacing(8)
@@ -983,8 +1007,6 @@ class MainWindow(QMainWindow):
         save_hint.setWordWrap(True)
         sv.addWidget(save_hint)
 
-        # stacked full-width boxes: the progress readouts need the whole row
-        # (percent / elapsed / N / phi), side-by-side boxes clipped them
         grid.addWidget(run_box, 0, 0)
         grid.addWidget(progress_box, 1, 0)
         grid.addWidget(save_box, 2, 0)
@@ -996,8 +1018,8 @@ class MainWindow(QMainWindow):
         scroll.setWidget(page)
         return scroll
 
+    # a captioned progress bar: small label on the left, bar on the right.
     def _make_progress_row(self, caption):
-
         row = QWidget()
         h = QHBoxLayout(row)
         h.setContentsMargins(0, 0, 0, 0)
@@ -1015,8 +1037,8 @@ class MainWindow(QMainWindow):
         h.addWidget(detail)
         return {"row": row, "caption": cap, "bar": bar, "detail": detail}
 
+    # prepare the bars for a run. show the second bar for heterogeneous media.
     def _reset_progress(self, is_layer):
-
         self.prog_primary["bar"].setRange(0, 100)
         self.prog_primary["bar"].setValue(0)
         self.prog_secondary["bar"].setRange(0, 100)
@@ -1064,13 +1086,11 @@ class MainWindow(QMainWindow):
         self._log_anim.setEasingCurve(QEasingCurve.OutCubic)
         self._log_anim.finished.connect(self._on_log_anim_done)
 
-        # right-side view tabs: Preview (always-on live figure) + Result
         self.view_tabs = QTabWidget()
         self.view_tabs.setDocumentMode(True)
         self.view_tabs.tabBar().setExpanding(True)
         self._view_underline = TabUnderline(self.view_tabs.tabBar())
 
-        # Preview tab (live combined figure) -- ONE persistent canvas
         self.preview_host = QWidget()
         self.preview_host.setObjectName("canvasCard")
         self.preview_layout = QVBoxLayout(self.preview_host)
@@ -1109,7 +1129,6 @@ class MainWindow(QMainWindow):
             self.preview_host if which == "preview" else self.result_host)
 
     def _on_form_tab_changed(self, idx):
-        # convenience: jump to Preview while editing any live-preview parameter.
         self._update_draw_box_visibility()
         self._refresh_previews()
         self.view_tabs.setCurrentWidget(self.preview_host)
@@ -1728,7 +1747,6 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             "Moved saved polygon." if kind == "group" else f"Moved {kind}.")
 
-    # ------------------------------------------------------------- widgets
     def _label_for(self, name):
         label = FIELD_LABELS.get(name, name)
         unit = f"  [{UNITS[name]}]" if name in UNITS else ""
@@ -1749,7 +1767,6 @@ class MainWindow(QMainWindow):
             w = QLineEdit()
         self.widgets[name] = w
 
-        # signal wiring: selectors drive visibility; everything refreshes previews
         if isinstance(w, QComboBox):
             w.currentTextChanged.connect(self._on_field_changed)
         elif isinstance(w, QCheckBox):
@@ -1767,7 +1784,6 @@ class MainWindow(QMainWindow):
         self._update_polygon_buttons()
         self._schedule_previews()
 
-    # -------------------------------------------------------- config <-> form
     def load_config(self, cfg: Config):
         for name, w in self.widgets.items():
             val = getattr(cfg, name)
@@ -1783,6 +1799,7 @@ class MainWindow(QMainWindow):
                 else:
                     w.setText(str(val))
 
+    # build a config from the form.
     def read_config(self, strict: bool = True) -> Config:
         kwargs = {}
         for f in fields(Config):
@@ -1790,8 +1807,6 @@ class MainWindow(QMainWindow):
             w = self.widgets.get(name)
             default = getattr(DEFAULTS, name)
             if w is None:
-                # engine-only field (no GUI widget, e.g. RSA solver
-                # termination limits): carry the current value through
                 kwargs[name] = getattr(self.cfg, name, default)
                 continue
             try:
@@ -1814,10 +1829,8 @@ class MainWindow(QMainWindow):
             except (ValueError, TypeError):
                 if strict:
                     raise
-
                 kwargs[name] = getattr(self.cfg, name, default)
         return Config(**kwargs)
-
 
     def update_visibility(self):
         w = self.widgets
@@ -1829,7 +1842,6 @@ class MainWindow(QMainWindow):
             self.labels[name].setVisible(show)
         self._update_draw_box_visibility()
 
-
     def _schedule_previews(self):
         if not hasattr(self, "_preview_timer"):
             self._preview_timer = QTimer(self)
@@ -1839,23 +1851,19 @@ class MainWindow(QMainWindow):
         self._preview_timer.start()
 
     def _refresh_previews(self):
-
         if getattr(self, "_running", False):
             return
-
         try:
             cfg = self.read_config(strict=False)
         except Exception:
-            return  
+            return
         try:
             if self._domain_preview_active():
                 _make_domain_preview_figure(cfg, fig=self.preview_fig)
             else:
                 gen.make_preview_figure(cfg, fig=self.preview_fig)
-
             self.preview_canvas.draw_idle()
         except Exception:
-
             self._report_preview_error(traceback.format_exc())
 
     def _report_preview_error(self, tb):
@@ -1871,14 +1879,13 @@ class MainWindow(QMainWindow):
         gen.make_overview_figure(self.cfg, res, res.get("net"), fig=self.result_fig)
         self.canvas.draw()
 
-    # ----------------------------------------------------------------- actions
     def _log(self, text, clear=False):
         if clear:
             self.log.clear()
         self.log.append(text)
 
+    # overlay position: pinned just below the view tab bar, spanning the
     def _log_overlay_rect(self, h):
-
         tabs = self.view_tabs
         x = tabs.x() + 10
         y = tabs.y() + tabs.tabBar().height() + 8
@@ -1935,7 +1942,7 @@ class MainWindow(QMainWindow):
         for wmsg in warns:
             self._log("\u26a0 " + wmsg)
         if warns:
-            self.log_toggle.setChecked(True)  # surface warnings
+            self.log_toggle.setChecked(True)
             if cfg.strict_feasibility:
                 QMessageBox.warning(self, "Aborted", "strict_feasibility=True with warnings present.")
                 return
@@ -1966,7 +1973,7 @@ class MainWindow(QMainWindow):
         if mode == "process":
             self.statusBar().showMessage("Generating in a separate process - UI stays responsive.")
         elif not getattr(self, "_thread_mode_noted", False):
-            # Only nag once per session.
+            # only nag once per session.
             self._thread_mode_noted = True
             self._log("Running inside an interactive kernel (Jupyter/Spyder): heavy "
                       "generation runs in a background THREAD, so the UI can feel laggy "
@@ -1979,8 +1986,6 @@ class MainWindow(QMainWindow):
         ens = f"realisation {k + 1}/{n} - " if n > 1 else ""
 
         if "[analysis]" in msg:
-            # Uninstrumented phase: show a busy/indeterminate state on the primary
-            # bar so a full bar doesn't read as "stuck / done" while it runs.
             self.prog_primary["bar"].set_busy(True)
             self.badge_state.set_state("run", "analyzing\u2026")
             self.statusBar().showMessage(ens + "analyzing throat network\u2026")
@@ -1993,7 +1998,7 @@ class MainWindow(QMainWindow):
         stats = _progress_stats(msg)
         if "heterogeneity:grains" in msg or "layer:fine" in msg:
             self.prog_primary["bar"].set_busy(False)
-            self.prog_primary["bar"].animate_to(100)     # background done
+            self.prog_primary["bar"].animate_to(100)
             self.prog_secondary["bar"].animate_to(pct)
             self.prog_primary["detail"].setText(_format_progress_detail(
                 self._progress_state, "primary", 1.0, None, freeze=True))
@@ -2007,7 +2012,7 @@ class MainWindow(QMainWindow):
             self.prog_primary["detail"].setText(_format_progress_detail(
                 self._progress_state, "primary", frac01, stats,
                 freeze=frac01 >= 1.0))
-        else:  # homogeneous (single bar)
+        else:
             self.prog_primary["bar"].set_busy(False)
             self.prog_primary["bar"].animate_to(pct)
             self.prog_primary["detail"].setText(_format_progress_detail(
@@ -2071,7 +2076,7 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def on_failed(self, msg):
         self._running = False
-        self.prog_primary["bar"].set_busy(False)  # stop the busy marquee
+        self.prog_primary["bar"].set_busy(False)
         self._reset_run_buttons()
         if msg.startswith("Cancelled"):
             self.badge_state.set_state("warn", "cancelled")
@@ -2095,7 +2100,6 @@ class MainWindow(QMainWindow):
         for b in (self.btn_save_geom, self.btn_save_csv, self.btn_save_fig):
             b.setEnabled(on)
 
-    # ------------------------------------------------------------------ saves
     def on_save_geometry(self):
         if not self.results:
             return
@@ -2234,7 +2238,7 @@ def _make_domain_preview_figure(cfg, fig=None):
     pad_z = max(cfg.height * 0.22, 1e-6)
 
     ax.add_patch(Rectangle((0, 0), cfg.width, cfg.height,
-                           facecolor="#edf4ff", edgecolor="#1d4ed8", lw=2.2))
+                           facecolor="#edf4ff", edgecolor="#374151", lw=2.2))
     ax.annotate("", xy=(0, -0.07 * cfg.height),
                 xytext=(cfg.width, -0.07 * cfg.height),
                 arrowprops=dict(arrowstyle="<->", color="#344054", lw=1.6))
@@ -2250,7 +2254,7 @@ def _make_domain_preview_figure(cfg, fig=None):
 
     ax.text(cfg.width / 2, cfg.height / 2, f"{w_mm:.1f} x {h_mm:.1f} mm",
             ha="center", va="center", fontsize=18, fontweight="bold",
-            color="#1d4ed8")
+            color="#374151")
     if cfg.medium_type == "layer":
         geo = gen.make_layer_geometry(cfg)
         if geo.get("shape") in ("polygon", "multipolygon"):
@@ -2283,7 +2287,7 @@ def _make_domain_preview_figure(cfg, fig=None):
         elif geo.get("shape") == "rectangle":
             xs, xe, zs, ze = geo["xs"], geo["xe"], geo["zs"], geo["ze"]
             ax.add_patch(Rectangle((xs, zs), xe - xs, ze - zs,
-                                   facecolor="#dbeafe", edgecolor="#0f766e",
+                                   facecolor="#e6e8ec", edgecolor="#0f766e",
                                    lw=2.0, alpha=0.62))
             ax.scatter([(xs + xe) / 2], [(zs + ze) / 2], s=78, marker="P",
                        color="#f97316", edgecolor="#ffffff",
@@ -2651,7 +2655,6 @@ class QmlBackend(QObject):
         if name in ("min_throat", "k_candidates"):
             return self._values.get("throat_mode") in ("soft", "hard")
         if name in ("interface_amplitude", "interface_freqs"):
-            # adaptive interface: only the on/off toggle is exposed in the GUI
             return False
         if name in ("layer_ln_sigma", "layer_ln_median"):
             return self._values.get("layer_dist_type") == "lognormal"
@@ -3012,7 +3015,6 @@ class QmlBackend(QObject):
 
 
 def _run_qml_app(app):
-
     qml_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qml")
     qml_name = "MainTabbed.qml" if os.environ.get("RSA_GUI_TABBED") == "1" else "Main.qml"
     qml_file = os.path.join(qml_dir, qml_name)
@@ -3048,8 +3050,32 @@ def _run_qml_app(app):
     return True
 
 
-def main():
-    app = QApplication(sys.argv)
+# dismiss the pyinstaller boot splash (frozen .exe only; no-op
+def _close_splash():
+    if "_PYI_SPLASH_IPC" not in os.environ:
+        return
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except Exception:
+        pass
+
+
+def _enable_windows_dpi_awareness():
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            import ctypes
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+
+def _configure_app(app):
     from PySide6.QtGui import QFont
     f = QFont("Segoe UI", 10)
     f.setStyleStrategy(QFont.PreferAntialias)
@@ -3060,18 +3086,378 @@ def main():
             try:
                 import ctypes
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                    "RSA.PorousMediaGenerator")
+                    "RSA.Porous2D")
             except Exception:
                 pass
         app.setWindowIcon(QIcon(icon_path))
+
+
+def _splash_stage(splash, text, value=None):
+    if splash is None:
+        return
+    try:
+        if hasattr(splash, "set_stage"):
+            splash.set_stage(text, value)
+        elif hasattr(splash, "showMessage"):
+            splash.showMessage(text, Qt.AlignBottom | Qt.AlignHCenter, QColor("#344054"))
+    except Exception:
+        return
+    QApplication.processEvents()
+
+
+def _finish_startup_splash(splash, window=None):
+    if splash is None:
+        return
+    try:
+        if hasattr(splash, "finish"):
+            if window is not None:
+                splash.finish(window)
+            else:
+                splash.finish()
+        else:
+            splash.close()
+    except TypeError:
+        try:
+            splash.close()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+REPO_URL = "https://github.com/Fuadqr/RSA-Porous2D"
+
+
+class PorousLogo(QLabel):
+    """Application logo, shown at a requested size. Uses the project .ico"""
+
+    def __init__(self, size=96, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self.setAlignment(Qt.AlignCenter)
+        self.setStyleSheet("background:transparent;")
+        path = _app_icon_path()
+        if path:
+            self.setPixmap(QIcon(path).pixmap(size, size))
+
+
+# white card with a numbered badge, title and short description.
+def _feature_card(num, title, desc):
+    card = QFrame()
+    card.setFrameShape(QFrame.NoFrame)
+    card.setObjectName("featureCard")
+    card.setStyleSheet(
+        "QFrame#featureCard{background:#ffffff;border:1px solid #e1e7f0;}")
+    v = QVBoxLayout(card)
+    v.setContentsMargins(18, 16, 18, 16)
+    v.setSpacing(9)
+    badge = QLabel(str(num))
+    badge.setFixedSize(34, 34)
+    badge.setAlignment(Qt.AlignCenter)
+    badge.setStyleSheet("background:#eceef2;color:#374151;font-size:15px;"
+                        "font-weight:900;border:1px solid #d6dae0;")
+    v.addWidget(badge)
+    t = QLabel(title)
+    t.setStyleSheet("font-size:15px;font-weight:800;color:#1f2937;background:transparent;")
+    v.addWidget(t)
+    d = QLabel(desc)
+    d.setWordWrap(True)
+    d.setStyleSheet("font-size:12px;color:#667085;background:transparent;")
+    v.addWidget(d)
+    v.addStretch(1)
+    return card
+
+
+class AboutDialog(QDialog):
+    """Modal 'About' window: hero, highlighted repository card, and sections."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About RSA-Porous2D")
+        self.setModal(True)
+        self.resize(660, 660)
+        icon_path = _app_icon_path()
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll, 1)
+        page = QWidget()
+        scroll.setWidget(page)
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(34, 30, 34, 16)
+        lay.setSpacing(12)
+
+        lr = QHBoxLayout()
+        lr.addStretch(1)
+        lr.addWidget(PorousLogo(72))
+        lr.addStretch(1)
+        lay.addLayout(lr)
+
+        name = QLabel("RSA-Porous2D")
+        name.setAlignment(Qt.AlignHCenter)
+        name.setStyleSheet("font-size:30px;font-weight:900;color:#111827;background:transparent;")
+        lay.addWidget(name)
+        ver = QLabel("Version 1.0.0    Open Source Edition")
+        ver.setAlignment(Qt.AlignHCenter)
+        ver.setStyleSheet("font-size:14px;font-weight:800;color:#374151;background:transparent;")
+        lay.addWidget(ver)
+        sub = QLabel("Reproducible 2D porous-media generation for pore-scale CFD and CFD-DEM")
+        sub.setAlignment(Qt.AlignHCenter)
+        sub.setWordWrap(True)
+        sub.setStyleSheet("font-size:13px;color:#667085;background:transparent;")
+        lay.addWidget(sub)
+        lay.addSpacing(6)
+
+        repo = QFrame()
+        repo.setObjectName("repoCard")
+        repo.setFrameShape(QFrame.NoFrame)
+        repo.setStyleSheet("QFrame#repoCard{background:#f1f3f7;border:1px solid #d6dae0;}")
+        rv = QVBoxLayout(repo)
+        rv.setContentsMargins(16, 14, 16, 14)
+        rv.setSpacing(8)
+        rt = QLabel("Repository, updates and citation")
+        rt.setStyleSheet("font-size:14px;font-weight:800;color:#1f2937;background:transparent;")
+        rv.addWidget(rt)
+        rd = QLabel("Latest source code, documentation, releases, issue tracking and "
+                    "citation information are hosted on GitHub.")
+        rd.setWordWrap(True)
+        rd.setStyleSheet("font-size:12px;color:#667085;background:transparent;")
+        rv.addWidget(rd)
+        rrow = QHBoxLayout()
+        link = QLabel('<a href="%s" style="color:#374151;">github.com/Fuadqr/RSA-Porous2D</a>' % REPO_URL)
+        link.setOpenExternalLinks(True)
+        link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        link.setStyleSheet("font-size:13px;font-weight:700;background:transparent;")
+        rrow.addWidget(link)
+        rrow.addStretch(1)
+        openbtn = AnimatedButton("Open repository", "primary")
+        openbtn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_URL)))
+        rrow.addWidget(openbtn)
+        rv.addLayout(rrow)
+        lay.addWidget(repo)
+
+        def section(heading, text):
+            h = QLabel(heading)
+            h.setStyleSheet("font-size:12px;font-weight:900;color:#475569;background:transparent;")
+            lay.addWidget(h)
+            b = QLabel(text)
+            b.setWordWrap(True)
+            b.setStyleSheet("font-size:13px;color:#344054;background:transparent;")
+            lay.addWidget(b)
+
+        section("OVERVIEW",
+                "RSA-Porous2D is an open-source tool for generating reproducible "
+                "two-dimensional polydisperse circular-grain porous media for "
+                "pore-scale CFD and CFD-DEM simulations. It supports "
+                "porosity-controlled random sequential adsorption packing, soft "
+                "and strict throat-control modes, homogeneous and heterogeneous "
+                "media, automatic pore-throat analysis, and solver-ready geometry "
+                "export.")
+        section("DEVELOPER", "Fuad Alqrinawi")
+        section("AFFILIATION",
+                "School of Geography, Earth and Environmental Sciences, "
+                "University of Birmingham, United Kingdom")
+        section("LICENSE", "Released under the MIT License.")
+        lay.addStretch(1)
+
+        bar = QHBoxLayout()
+        bar.setContentsMargins(34, 10, 34, 16)
+        bar.addStretch(1)
+        close = AnimatedButton("Close", "primary")
+        close.clicked.connect(self.accept)
+        bar.addWidget(close)
+        outer.addLayout(bar)
+
+
+class WelcomeScreen(QWidget):
+    """Landing screen: hero (logo, name, tagline, description), Start/About"""
+    startRequested = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("RSA-Porous2D")
+        self.setAutoFillBackground(True)
+        icon_path = _app_icon_path()
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+        self.resize(1180, 800)
+        self.setMinimumSize(880, 620)
+        self._pack_cache = None
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(64, 40, 64, 30)
+        root.setSpacing(0)
+        root.addStretch(3)
+
+        lr = QHBoxLayout()
+        lr.addStretch(1)
+        hero_path = _hero_image_path()
+        if hero_path:
+            hero = QLabel()
+            hero.setFixedSize(150, 150)
+            hero.setAlignment(Qt.AlignCenter)
+            hero.setStyleSheet("background:transparent;")
+            hero.setPixmap(QPixmap(hero_path).scaled(
+                150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            lr.addWidget(hero)
+        else:
+            lr.addWidget(PorousLogo(104))
+        lr.addStretch(1)
+        root.addLayout(lr)
+        root.addSpacing(20)
+
+        title = QLabel("RSA-Porous2D")
+        title.setAlignment(Qt.AlignHCenter)
+        title.setStyleSheet("font-size:54px;font-weight:900;color:#111827;background:transparent;")
+        root.addWidget(title)
+        root.addSpacing(4)
+
+        sub = QLabel("2D Polydisperse Porous-Media Generator")
+        sub.setAlignment(Qt.AlignHCenter)
+        sub.setStyleSheet("font-size:21px;font-weight:700;color:#475569;background:transparent;")
+        root.addWidget(sub)
+        root.addSpacing(16)
+
+        desc = QLabel("Generate reproducible porosity-controlled grain packings, "
+                      "control the minimum pore throats, and export solver-ready "
+                      "geometry for pore-scale CFD and CFD-DEM.")
+        desc.setAlignment(Qt.AlignHCenter)
+        desc.setWordWrap(True)
+        desc.setMaximumWidth(760)
+        desc.setStyleSheet("font-size:15px;color:#667085;background:transparent;")
+        dr = QHBoxLayout()
+        dr.addStretch(1)
+        dr.addWidget(desc)
+        dr.addStretch(1)
+        root.addLayout(dr)
+        root.addSpacing(30)
+
+        btns = QHBoxLayout()
+        btns.setSpacing(12)
+        btns.addStretch(1)
+        start = AnimatedButton("Start New Analysis", "primary")
+        start.setMinimumWidth(210)
+        start.setMinimumHeight(48)
+        start.clicked.connect(self.startRequested.emit)
+        about = AnimatedButton("About", "normal")
+        about.setMinimumWidth(120)
+        about.setMinimumHeight(48)
+        about.clicked.connect(self._show_about)
+        btns.addWidget(start)
+        btns.addWidget(about)
+        btns.addStretch(1)
+        root.addLayout(btns)
+        root.addSpacing(44)
+
+        cards = QHBoxLayout()
+        cards.setSpacing(18)
+        cards.addStretch(1)
+        for n, t, d in (
+            (1, "Polydisperse packing",
+             "Porosity-controlled random sequential adsorption places circular "
+             "grains drawn from your size distribution."),
+            (2, "Throat control",
+             "Soft and strict minimum pore-throat modes constrain the packing for "
+             "realistic pore connectivity."),
+            (3, "Analysis and export",
+             "Delaunay pore-network throat statistics, live previews, and "
+             "solver-ready geometry export."),
+        ):
+            c = _feature_card(n, t, d)
+            c.setFixedWidth(310)
+            c.setMinimumHeight(156)
+            cards.addWidget(c)
+        cards.addStretch(1)
+        root.addLayout(cards)
+        root.addStretch(3)
+
+        foot = QLabel("Released under the MIT License")
+        foot.setAlignment(Qt.AlignHCenter)
+        foot.setStyleSheet("font-size:12px;color:#8a96a3;background:transparent;")
+        root.addWidget(foot)
+        cite = QLabel("If used in research, please cite: Alqrinawi et al. (2026).")
+        cite.setAlignment(Qt.AlignHCenter)
+        cite.setStyleSheet("font-size:12px;color:#9aa4b5;background:transparent;")
+        root.addSpacing(4)
+        root.addWidget(cite)
+
+    # non-overlapping grains filling the window (rsa-style rejection
+    def _packed(self, w, h):
+        if self._pack_cache and self._pack_cache[0] == (w, h):
+            return self._pack_cache[1]
+        import random
+        rng = random.Random(20240613)
+        base = min(w, h)
+        rmin, rmax = base * 0.030, base * 0.080
+        gap = base * 0.016
+        circles = []
+        tries = 0
+        while len(circles) < 64 and tries < 12000:
+            tries += 1
+            r = rng.uniform(rmin, rmax)
+            x = rng.uniform(r, w - r)
+            y = rng.uniform(r, h - r)
+            ok = True
+            for ox, oy, orr in circles:
+                dx, dy = x - ox, y - oy
+                if dx * dx + dy * dy < (r + orr + gap) ** 2:
+                    ok = False
+                    break
+            if ok:
+                circles.append((x, y, r))
+        self._pack_cache = ((w, h), circles)
+        return circles
+
+    def _show_about(self):
+        AboutDialog(self).exec()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        w, h = self.width(), self.height()
+        p.fillRect(self.rect(), QColor("#f5f7fb"))
+        for x, y, r in self._packed(w, h):
+            p.setPen(QPen(QColor(55, 65, 81, 36), 1.4))
+            p.setBrush(QColor(55, 65, 81, 12))
+            p.drawEllipse(QPointF(x, y), r, r)
+        base = min(w, h)
+        g = QRadialGradient(w / 2.0, h * 0.44, base * 0.95)
+        g.setColorAt(0.0, QColor(245, 247, 251, 238))
+        g.setColorAt(0.5, QColor(245, 247, 251, 170))
+        g.setColorAt(1.0, QColor(245, 247, 251, 0))
+        p.fillRect(self.rect(), QBrush(g))
+
+
+def main(app=None, startup_splash=None):
+    if app is None:
+        _enable_windows_dpi_awareness()
+        app = QApplication(sys.argv)
+
+    restore_quit_on_close = app.quitOnLastWindowClosed()
+    if startup_splash is not None:
+        app.setQuitOnLastWindowClosed(False)
+
+    _splash_stage(startup_splash, "Preparing application...", 74)
+    _configure_app(app)
     if os.environ.get("RSA_GUI_QML") == "1":
         try:
+            _splash_stage(startup_splash, "Loading QML interface...", 84)
             if _run_qml_app(app):
-                sys.exit(app.exec())
+                _splash_stage(startup_splash, "Ready.", 100)
+                _finish_startup_splash(startup_splash)
+                app.setQuitOnLastWindowClosed(restore_quit_on_close)
+                _close_splash()
+                return app.exec()
         except Exception:
             sys.stderr.write("\n[QML frontend failed; falling back to Widgets]\n"
                              + traceback.format_exc() + "\n")
 
+    _splash_stage(startup_splash, "Applying theme...", 86)
     app.setStyleSheet(QSS)
     if ENGINE_MISSING:
         QMessageBox.warning(
@@ -3081,12 +3467,28 @@ def main():
             + "\n\nThe live preview and/or generation will not work. If you are in a "
               "Jupyter/IPython kernel, restart the kernel. Otherwise update "
               "rsa_porous_media.py to the current version.")
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec())
+    _splash_stage(startup_splash, "Building interface...", 92)
+    welcome = WelcomeScreen()
+    app._welcome = welcome
+
+    def _launch_generator():
+        win = MainWindow()
+        app._main_window = win
+        win.showMaximized()
+        welcome.close()
+
+    welcome.startRequested.connect(_launch_generator)
+
+    _splash_stage(startup_splash, "Showing interface...", 98)
+    welcome.showMaximized()
+    QApplication.processEvents()
+    _finish_startup_splash(startup_splash, welcome)
+    app.setQuitOnLastWindowClosed(restore_quit_on_close)
+    _close_splash()
+    return app.exec()
 
 
 if __name__ == "__main__":
     import multiprocessing
     multiprocessing.freeze_support()
-    main()
+    sys.exit(main())

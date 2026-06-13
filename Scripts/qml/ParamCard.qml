@@ -11,7 +11,7 @@ Rectangle {
     property var formValues: ({})
     property var controller
     property string title: ""
-    property string accent: "#2f6fed"
+    property string accent: "#374151"
     property string hint: ""
     property var sections: []
     property int columns: 2

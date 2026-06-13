@@ -103,8 +103,8 @@ Rectangle {
             root.domW = Math.max(d.width, 1e-12)
             root.domH = Math.max(d.height, 1e-12)
 
-            ctx.fillStyle = "#eaf2ff"
-            ctx.strokeStyle = "#1d4ed8"
+            ctx.fillStyle = "#eef0f2"
+            ctx.strokeStyle = "#374151"
             ctx.lineWidth = 4
             ctx.fillRect(rx, ry, rectW, rectH)
             ctx.strokeRect(rx, ry, rectW, rectH)
@@ -121,7 +121,7 @@ Rectangle {
             ctx.restore()
 
             drawTitle(ctx, d.widthMm.toFixed(1) + " x " + d.heightMm.toFixed(1) + " mm",
-                      rx + rectW / 2, ry + rectH / 2, 30, "#1d4ed8")
+                      rx + rectW / 2, ry + rectH / 2, 30, "#374151")
 
             if (d.layer && (d.layer.shape === "polygon" || d.layer.shape === "multipolygon")) {
                 function xMap(x) { return rx + x / Math.max(d.width, 1e-12) * rectW }

@@ -17,7 +17,7 @@ Rectangle {
         if (kind === "bad")
             return "#fee2e2"
         if (kind === "run")
-            return "#dbeafe"
+            return "#e6e8ec"
         return "#e8edf4"
     }
 
@@ -30,7 +30,7 @@ Rectangle {
         if (kind === "bad")
             return "#fecaca"
         if (kind === "run")
-            return "#bfdbfe"
+            return "#cbd2da"
         return "#d8e0ea"
     }
 
@@ -49,7 +49,7 @@ Rectangle {
             if (kind === "bad")
                 return "#991b1b"
             if (kind === "run")
-                return "#1d4ed8"
+                return "#374151"
             return "#667085"
         }
         elide: Text.ElideRight

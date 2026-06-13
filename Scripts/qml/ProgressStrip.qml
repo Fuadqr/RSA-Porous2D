@@ -43,7 +43,7 @@ Item {
                 anchors.bottom: parent.bottom
                 width: Math.max(0, Math.min(1, root.value)) * parent.width
                 radius: 5
-                color: "#2f6fed"
+                color: "#374151"
 
                 Behavior on width {
                     NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
@@ -56,7 +56,7 @@ Item {
                 width: Math.max(44, track.width * 0.28)
                 height: track.height
                 radius: 5
-                color: "#2f6fed"
+                color: "#374151"
                 opacity: 0.72
 
                 NumberAnimation on x {

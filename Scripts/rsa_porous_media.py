@@ -1,3 +1,5 @@
+"""RSA 2D POROUS-MEDIA GENERATOR  (configurable, GUI-ready)"""
+
 from __future__ import annotations
 
 import os
@@ -13,6 +15,7 @@ class CancelledError(Exception):
     """Raised when a cancel_cb requests an early stop (e.g. GUI 'Stop' button)."""
 
 
+# wrap a progress callback so a local 0..1 fraction maps into [lo, hi].
 def _scaled_cb(cb, lo, hi):
     if cb is None:
         return None
@@ -28,7 +31,7 @@ from scipy.spatial import Delaunay
 
 try:
     from tqdm import tqdm
-except Exception:  # pragma: no cover
+except Exception:
     class _NoBar:
         def __init__(self, *a, **k):
             self.n = 0
@@ -46,59 +49,39 @@ except Exception:  # pragma: no cover
         return _NoBar()
 
 
-# CONFIG: Edit everything here (or build this object from a GUI)
-
 @dataclass
 class Config:
-    # ---- 1. Domain (2D, X-Z plane). Sizes in metres. -----------------------
-    width: float = 0.050           # domain extent in X [m]
-    height: float = 0.060          # domain extent in Z [m]
-    y_fixed: float = 0.0001        # constant out-of-plane Y written to outputs
-    x_origin: float = 0.005        # world X offset added on output (0 = none)
-    z_origin: float = 0.000        # world Z offset added on output
-    # Boundary wall snapping: forces grains within snap_wall_threshold of a wall
-    # to sit exactly tangent. ON gives a clean flush edge but a more regimented
-    # boundary; turn OFF (or shrink the distance) to relax the edge ordering.
+    width: float = 0.050
+    height: float = 0.060
+    y_fixed: float = 0.0001
+    x_origin: float = 0.005
+    z_origin: float = 0.000
     snap_wall_enabled: bool = True
-    snap_wall_threshold: float = 3.0e-4   # snap distance [m] (300 um default)
+    snap_wall_threshold: float = 3.0e-4
 
-    #2. Grain-size distribution 
-    # dist_type: 'lognormal' | 'normal' | 'uniform' | 'custom'
     dist_type: str = "lognormal"
-    r_min: float = 0.0008          # smallest grain radius [m]
-    r_max: float = 0.0018          # largest grain radius [m]
-    num_sizes: int = 24            # number of discrete radii bins
-    # distribution parameters (only the ones for dist_type are used):
-    ln_sigma: float = 0.35         # lognormal shape (sigma of underlying normal)
-    ln_median: float = 0.0009      # lognormal median radius [m] (within range)
-    nm_mean: float = 0.0012        # normal mean radius [m]
-    nm_std: float = 0.0003         # normal std [m]
-    # for dist_type == 'custom', supply explicit radii + weights (else None):
+    r_min: float = 0.0008
+    r_max: float = 0.0018
+    num_sizes: int = 24
+    ln_sigma: float = 0.35
+    ln_median: float = 0.0009
+    nm_mean: float = 0.0012
+    nm_std: float = 0.0003
     custom_radii: tuple | None = None
     custom_weights: tuple | None = None
 
-    #3. Porosity (TARGET, not guaranteed)
     target_porosity: float = 0.42
 
-    #4. Heterogeneity: 'homogeneous' | 'layer'
     medium_type: str = "homogeneous"
-    # Heterogeneity settings. 'layer' keeps the original band/patch behavior.
-    # 'polygon' can store additional completed polygons in heterogeneity_polygons.
     layer_shape: str = "rectangle"
     layer_polygon: tuple | None = (0.020, 0.000, 0.030, 0.000,
                                    0.030, 0.060, 0.020, 0.060)
-    # Internal GUI storage for additional polygons. Groups are flattened x,z
-    # vertex pairs separated by nan,nan.
     heterogeneity_polygons: tuple | None = None
-    # The layer is a rectangle bounded in BOTH axes. Set a pair to the full
-    # domain extent to recover an infinite band; keep both tight for a patch.
-    # The wavy interface is applied to the edges of the NARROWER (band-normal)
-    # axis only; the wider axis keeps clean edges.
-    layer_x_start: float = 0.020   # rectangle X bounds [m]
+    layer_x_start: float = 0.020
     layer_x_end: float = 0.030
-    layer_z_start: float = 0.000   # rectangle Z bounds [m] (full height = band)
+    layer_z_start: float = 0.000
     layer_z_end: float = 0.060
-    layer_porosity: float = 0.42   # target porosity inside the heterogeneity
+    layer_porosity: float = 0.42
     layer_dist_type: str = "lognormal"
     layer_r_min: float = 0.0005
     layer_r_max: float = 0.0008
@@ -108,59 +91,45 @@ class Config:
     layer_nm_mean: float = 0.00065
     layer_nm_std: float = 0.00005
     rough_interface: bool = True
-    # Interface roughness ADAPTS to the surrounding grains by default:
-    # amplitude <= 0 means "use the matrix grain scale" and blank freqs mean
-    # "wavelength of a few matrix grain diameters per edge". Setting explicit
-    # values still overrides the adaptive treatment.
     interface_amplitude: float = 0.0
     interface_freqs: tuple | None = None
 
-    #5. Minimum pore throat
-    # throat_mode: 'none' | 'soft' | 'hard'
     throat_mode: str = "soft"
-    min_throat: float = 100e-6     # target / floor [m] depending on mode
-    k_candidates: int = 15         # best-of-K placement (1 == plain RSA)
+    min_throat: float = 100e-6
+    k_candidates: int = 15
 
-    # RSA solver termination (engine/CLI only; deliberately NOT in the GUI).
-    # max_attempts: random position trials per grain before that grain counts
-    # as unplaceable. stall_limit: consecutive unplaceable grains before the
-    # packing gives up and reports what it achieved ("jammed above target").
     max_attempts: int = 4000
     stall_limit: int = 400
 
-    #6. Output
     out_dir: str = "."
     out_basename: str = "porous_medium"
-    # output_format: 'dat' (whitespace, default) | 'csv' | 'cin' (MultiFlow)
     output_format: str = "dat"
-    use_diameter: bool = False     # False -> 4th column is radius, True -> diameter
+    use_diameter: bool = False
 
-    #7 Parallel ensemble + safety
-    seed: int = 42                 # base RNG seed
-    n_realizations: int = 1        # >1  generate an ensemble
-    n_workers: int = 1             # >1  run realisations across processes
-    warn_particle_count: int = 50000   # warn above this estimated N
-    strict_feasibility: bool = False   # True  raise instead of warn
+    seed: int = 42
+    n_realizations: int = 1
+    n_workers: int = 1
+    warn_particle_count: int = 50000
+    strict_feasibility: bool = False
 
-    #Diagnostics / plotting
     run_throat_analysis: bool = True
     throat_bin_width_um: float = 25.0
-    make_plots: bool = False       # off by default (headless / ensemble safe)
+    make_plots: bool = False
 
     @property
     def domain_area(self) -> float:
         return self.width * self.height
 
 
-# The instance the user edits (or the GUI builds):
+# the instance the user edits (or the gui builds):
 CONFIG = Config()
 
 
+# return (radii[np], weights[np]) discretising the requested distribution.
 def build_psd(dist_type, r_min, r_max, num_sizes,
               ln_sigma=0.35, ln_median=None,
               nm_mean=None, nm_std=None,
               custom_radii=None, custom_weights=None):
-
     if dist_type == "custom":
         if custom_radii is None or custom_weights is None:
             raise ValueError("dist_type='custom' requires custom_radii and custom_weights.")
@@ -174,7 +143,7 @@ def build_psd(dist_type, r_min, r_max, num_sizes,
     else:
         radii = np.linspace(r_min, r_max, num_sizes)
 
-
+    # bin edges around centres
     edges = np.empty(num_sizes + 1)
     edges[1:-1] = 0.5 * (radii[:-1] + radii[1:])
     edges[0] = radii[0] - (radii[1] - radii[0]) / 2
@@ -199,10 +168,10 @@ def build_psd(dist_type, r_min, r_max, num_sizes,
     return radii, w
 
 
+# describe what rsa will sample from (not the final placed psd, which only
 def psd_diagnostics(dist_type, r_min, r_max, num_sizes,
                     ln_sigma=0.35, ln_median=None, nm_mean=None, nm_std=None,
                     custom_radii=None, custom_weights=None, n_curve=200):
-
     radii, weights = build_psd(dist_type, r_min, r_max, num_sizes,
                                ln_sigma, ln_median, nm_mean, nm_std,
                                custom_radii, custom_weights)
@@ -270,6 +239,7 @@ def overlaps(x, z, r, centers, radii, grid, min_gap):
     return False
 
 
+# lower is better. primary: count of neighbours closer than gap_target.
 def placement_score(x, z, r, centers, radii, grid, gap_target):
     n_tight = 0
     min_gap = np.inf
@@ -305,6 +275,7 @@ def hybrid_sample(radii, weights, n_total, rng, min_per_size=2):
     return out[:max(n_total, len(radii) * min_per_size)]
 
 
+# map a throat mode to (min_gap, gap_target, k) used by the packer.
 def _mode_params(throat_mode, min_throat, k_candidates):
     if throat_mode == "none":
         return 0.0, 0.0, 1
@@ -315,13 +286,13 @@ def _mode_params(throat_mode, min_throat, k_candidates):
     raise ValueError(f"Unknown throat_mode={throat_mode!r}.")
 
 
+# place grains by best-of-k rsa into bbox region.
 def rsa_fill(rng, radii_pool, *, bbox, region_area, target_porosity,
              min_gap, gap_target, k_candidates,
              max_attempts=4000, stall_limit=400,
              allow_fn=None, obstacles=None, progress=False, desc="RSA",
              progress_cb=None, cancel_cb=None,
              snap_enabled=True, snap_thr=3.0e-4):
-
     bx0, bx1, bz0, bz1 = bbox
     max_r = float(max(radii_pool))
     cell = max_r + min_gap
@@ -431,6 +402,7 @@ def build_homogeneous(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     return centers, radii, materials, meta
 
 
+# return clipped (x, z) vertices from a flat x,z tuple/list.
 def _clean_layer_polygon(points, width, height):
     if points is None:
         return []
@@ -450,6 +422,7 @@ def _clean_layer_polygon(points, width, height):
     return pts
 
 
+# return clipped x,z pairs without polygon-specific closing cleanup.
 def _clean_point_pairs(points, width, height):
     if points is None:
         return []
@@ -465,6 +438,7 @@ def _clean_point_pairs(points, width, height):
     return pts
 
 
+# return a list of clipped polygons from flat x,z groups.
 def _clean_polygon_groups(points, width, height):
     if points is None:
         return []
@@ -562,6 +536,7 @@ def _point_on_segment(x, z, x0, z0, x1, z1, tol=1e-12):
     return dot <= seg_len2 + tol
 
 
+# ray-casting inclusion test with boundary treated as inside.
 def _point_in_polygon(x, z, points):
     if len(points) < 3:
         return False
@@ -580,6 +555,7 @@ def _point_in_polygon(x, z, points):
     return inside
 
 
+# resolve the layer shape. returns helpers shared by build_layer and the
 def make_layer_geometry(cfg: Config, seed=None):
     if getattr(cfg, "layer_shape", "rectangle") == "polygon":
         raw_groups = _clean_polygon_groups(getattr(cfg, "heterogeneity_polygons", None),
@@ -628,19 +604,18 @@ def make_layer_geometry(cfg: Config, seed=None):
     zs, ze = max(0.0, zs), min(cfg.height, ze)
     wx, wz = xe - xs, ze - zs
 
-    # which edges are internal (not flush against a domain wall)?
     tol = 1e-9
     edge_internal = {
-        "x_lo": xs > tol,                 # left
-        "x_hi": xe < cfg.width - tol,     # right
-        "z_lo": zs > tol,                 # bottom
-        "z_hi": ze < cfg.height - tol,    # top
+        "x_lo": xs > tol,
+        "x_hi": xe < cfg.width - tol,
+        "z_lo": zs > tol,
+        "z_hi": ze < cfg.height - tol,
     }
 
     if seed is None:
         seed = cfg.seed + 999
     rng = np.random.RandomState(seed)
-    
+
     amp = float(cfg.interface_amplitude or 0.0)
     freqs_cfg = list(cfg.interface_freqs or ()) if cfg.rough_interface else []
     r_mean = None
@@ -676,6 +651,7 @@ def make_layer_geometry(cfg: Config, seed=None):
     def _taper(t):
         return math.sin(math.pi * t) ** 2
 
+    # inward displacement (>=0) of an internal edge at parametric position
     def edge_offset(edge, coord, lo, hi):
         if not cfg.rough_interface or not edge_internal[edge] or hi <= lo:
             return 0.0
@@ -696,7 +672,7 @@ def make_layer_geometry(cfg: Config, seed=None):
             return False
         return True
 
-    bbox = (xs, xe, zs, ze)  
+    bbox = (xs, xe, zs, ze)
 
     return {
         "shape": "rectangle", "polygon": [],
@@ -709,7 +685,7 @@ def make_layer_geometry(cfg: Config, seed=None):
 def build_layer(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     rng = np.random.RandomState(seed)
 
-    # 1) coarse background 
+    # 1) coarse background over whole domain
     psd_r, psd_w = build_psd(cfg.dist_type, cfg.r_min, cfg.r_max, cfg.num_sizes,
                              cfg.ln_sigma, cfg.ln_median, cfg.nm_mean, cfg.nm_std,
                              cfg.custom_radii, cfg.custom_weights)
@@ -725,7 +701,6 @@ def build_layer(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
         snap_enabled=cfg.snap_wall_enabled, snap_thr=cfg.snap_wall_threshold)
     bg_c = np.asarray(bg_c, float); bg_r = np.asarray(bg_r, float)
 
-    # 2) heterogeneity geometry 
     geo = make_layer_geometry(cfg, seed + 999)
     if (cfg.medium_type == "layer"
             and getattr(cfg, "layer_shape", "rectangle") == "polygon"
@@ -733,7 +708,6 @@ def build_layer(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
         raise ValueError("layer_shape='polygon' requires at least three valid x,z vertices.")
     in_layer = geo["in_layer"]
 
-    # 3) carve background grains whose CENTRE falls in the heterogeneity
     keep = np.array([not in_layer(cx, cz) for (cx, cz) in bg_c], dtype=bool)
     mat_c, mat_r = bg_c[keep], bg_r[keep]
 
@@ -746,7 +720,6 @@ def build_layer(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     for i, (cx, cz) in enumerate(mat_c):
         ob_grid.insert(i, cx, cz)
 
-    # 4) fill the heterogeneity with its grain population 
     layer_area = geo["area"]
     fine_pool = _radii_pool(rng, fine_r, fine_w, cfg.layer_porosity, layer_area, oversample=1.8)
     fine_c, fine_rr, _ = rsa_fill(
@@ -777,6 +750,7 @@ def build_layer(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     return centers, radii, materials, meta
 
 
+# top-level (picklable) single realisation -> dict of arrays + meta.
 def generate_single(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     if cfg.medium_type == "homogeneous":
         c, r, m, meta = build_homogeneous(cfg, seed, progress_cb, cancel_cb)
@@ -787,6 +761,7 @@ def generate_single(cfg: Config, seed: int, progress_cb=None, cancel_cb=None):
     return {"seed": seed, "centers": c, "radii": r, "materials": m, "meta": meta}
 
 
+# run cfg.n_realizations realisations. parallel across processes if asked.
 def generate_ensemble(cfg: Config):
     seeds = [cfg.seed + i for i in range(cfg.n_realizations)]
     if cfg.n_workers > 1 and cfg.n_realizations > 1:
@@ -797,6 +772,7 @@ def generate_ensemble(cfg: Config):
     return results
 
 
+# run generation + throat analysis for `seeds`, streaming progress and the
 def run_realisations_to_queue(cfg: Config, seeds, q, cancel_event):
     try:
         n = len(seeds)
@@ -830,8 +806,8 @@ def run_realisations_to_queue(cfg: Config, seeds, q, cancel_event):
         q.put(("error", _tb.format_exc()))
 
 
+# return (estimated_n, [warning strings]); cheap pre-run sanity check.
 def check_feasibility(cfg: Config):
-
     msgs = []
     psd_r, psd_w = build_psd(cfg.dist_type, cfg.r_min, cfg.r_max, cfg.num_sizes,
                              cfg.ln_sigma, cfg.ln_median, cfg.nm_mean, cfg.nm_std,
@@ -847,7 +823,6 @@ def check_feasibility(cfg: Config):
         msgs.append(f"Estimated candidate evaluations ~{work:,}. Consider lowering "
                     f"k_candidates or coarsening grains for a quick preview.")
 
-
     if cfg.target_porosity < 0.30:
         msgs.append(f"target_porosity={cfg.target_porosity:.2f} is low for 2D RSA. "
                     f"The packing may jam ABOVE target. Achieved value is reported after the run.")
@@ -855,11 +830,11 @@ def check_feasibility(cfg: Config):
     if cfg.throat_mode == "hard":
         min_d = 2 * cfg.r_min
         if cfg.min_throat > 0.5 * min_d:
-            msgs.append(f"Hard min_throat={cfg.min_throat*1e6:.0f} um is large vs smallest "
+            msgs.append(f"Strict min_throat={cfg.min_throat*1e6:.0f} um is large vs smallest "
                         f"grain diameter ({min_d*1e6:.0f} um). Packing may not converge; "
                         f"expect lower achieved porosity.")
         if cfg.target_porosity < 0.40:
-            msgs.append("Hard throat floor + low porosity target may be mutually infeasible.")
+            msgs.append("Strict throat floor + low porosity target may be mutually infeasible.")
 
     if cfg.medium_type == "layer":
         geo = make_layer_geometry(cfg)
@@ -895,6 +870,7 @@ def _line_hits_circle(p1, p2, c, r):
     return (0 <= t1 <= 1) or (0 <= t2 <= 1) or (t1 < 0 and t2 > 1)
 
 
+# delaunay + line-of-sight throat extraction (grid-accelerated blocking).
 def analyze_pore_network(centers, radii, bin_width_um=25.0, floor_um=None, cancel_cb=None):
     pts = np.asarray(centers, float)
     rad = np.asarray(radii, float)
@@ -947,6 +923,7 @@ def analyze_pore_network(centers, radii, bin_width_um=25.0, floor_um=None, cance
         return None
     w_um = w * 1e6
 
+    # fixed-width bins in micrometres
     bin_end = math.ceil(w_um.max() / bin_width_um) * bin_width_um
     bin_edges = np.arange(0.0, bin_end + bin_width_um, bin_width_um)
     counts, _ = np.histogram(w_um, bins=bin_edges)
@@ -975,8 +952,8 @@ def analyze_pore_network(centers, radii, bin_width_um=25.0, floor_um=None, cance
     }
 
 
+# return a one-line, mode-aware statement about the requested minimum throat
 def throat_floor_status(cfg, net):
-
     if net is None or cfg.throat_mode == "none":
         return None
     target = cfg.min_throat * 1e6
@@ -989,8 +966,8 @@ def throat_floor_status(cfg, net):
 
     if cfg.throat_mode == "hard":
         if minw >= target - 1e-6:
-            return f"Hard throat floor met: min throat {minw:.1f} µm ≥ requested {target:.0f} µm."
-        return (f"Hard throat floor NOT strictly met: min throat {minw:.1f} µm < requested "
+            return f"Strict throat floor met: min throat {minw:.1f} µm ≥ requested {target:.0f} µm."
+        return (f"Strict throat floor NOT strictly met: min throat {minw:.1f} µm < requested "
                 f"{target:.0f} µm - {_share(nbelow)} below floor "
                 f"(export rounding / grains packed to the limit).")
     # soft
@@ -1000,6 +977,7 @@ def throat_floor_status(cfg, net):
     return f"Soft throat target: all {total} throats ≥ {target:.0f} µm (min {minw:.1f} µm)."
 
 
+# write x y z value (value = radius or diameter). plane is x-z, y fixed.
 def write_geometry(cfg: Config, centers, radii, path_stem):
     val = (2 * radii) if cfg.use_diameter else radii
     label = "diameter" if cfg.use_diameter else "radius"
@@ -1052,6 +1030,8 @@ def write_throat_csv(net, path):
         wr.writerows(net["bin_table"])
     return path
 
+
+# draw the layer patch onto a given axis.
 def _draw_layer_overview(ax, cfg):
     from matplotlib.patches import Polygon, Rectangle
 
@@ -1126,6 +1106,7 @@ def _draw_layer_overview(ax, cfg):
         ax.legend(fontsize=6.5, loc="upper right")
 
 
+# standalone layer overview figure (cli / single use).
 def make_layer_overview_figure(cfg):
     from matplotlib.figure import Figure
     aspect = cfg.width / cfg.height
@@ -1135,6 +1116,7 @@ def make_layer_overview_figure(cfg):
     return fig
 
 
+# combined live preview for the gui's preview tab.
 def make_preview_figure(cfg, fig=None):
     matrix_diag = psd_diagnostics(cfg.dist_type, cfg.r_min, cfg.r_max, cfg.num_sizes,
                                   cfg.ln_sigma, cfg.ln_median, cfg.nm_mean, cfg.nm_std,
@@ -1163,6 +1145,7 @@ def make_preview_figure(cfg, fig=None):
 
 
 
+# draw one sampled-psd panel: bars = bin weights rsa will sample, line
 def _draw_psd(ax, diag, title, color):
     r = np.asarray(diag["radii"], float)
     w = np.asarray(diag["weights"], float)
@@ -1196,6 +1179,7 @@ def _draw_psd(ax, diag, title, color):
     ax.legend(fontsize=6.5, loc="upper left")
 
 
+# compact live preview of the sampled grain-size distribution(s) for the
 def make_psd_preview_figure(cfg):
     from matplotlib.figure import Figure
     is_heterogeneous = cfg.medium_type == "layer"
@@ -1217,6 +1201,7 @@ def make_psd_preview_figure(cfg):
     return fig
 
 
+# return a matplotlib figure (oo api, no pyplot, embeddable):
 def make_overview_figure(cfg, res, net, fig=None):
     from matplotlib.patches import Circle
     from matplotlib.collections import LineCollection
@@ -1230,12 +1215,13 @@ def make_overview_figure(cfg, res, net, fig=None):
     try:
         fig.set_layout_engine("constrained")
     except Exception:
-        pass  
+        pass
     gs = fig.add_gridspec(2, 2, width_ratios=[1.5, 1.0])
-    axg = fig.add_subplot(gs[:, 0])   # geometry spans both rows
-    axt = fig.add_subplot(gs[0, 1])   # throat-width histogram
-    axd = fig.add_subplot(gs[1, 1])   # grain-size distribution
+    axg = fig.add_subplot(gs[:, 0])
+    axt = fig.add_subplot(gs[0, 1])
+    axd = fig.add_subplot(gs[1, 1])
 
+    # geometry
     cols = np.where(m == "fine", "#4682B4", "#D2B48C")
     r_max_draw = float(np.max(r)) if len(r) else 1.0
     for (x, z), rr, col in zip(c, r, cols):
@@ -1255,19 +1241,16 @@ def make_overview_figure(cfg, res, net, fig=None):
     axg.set_title(title, pad=10)
     axg.set_xlabel("X [m]"); axg.set_ylabel("Z [m]")
 
-    # --- throat-width histogram ---
+    # throat-width histogram
     if net:
         axt.bar(0.5 * (net["bin_edges"][:-1] + net["bin_edges"][1:]), net["bin_counts"],
                 width=net["bin_width_um"] * 0.85, color="#D2691E", edgecolor="black", alpha=0.75)
         axt.axvline(net["mean_um"], color="darkred", lw=2, label=f"mean {net['mean_um']:.0f} µm")
         axt.axvline(net["median_um"], color="darkblue", ls="--", lw=2,
                     label=f"median {net['median_um']:.0f} µm")
-        # bin width lives in the x-label: a long centred title overflows the
-        # figure edge on narrow canvases
         axt.set_xlabel(f"Throat width [µm]  ({net['bin_width_um']:.0f} µm bins)")
         axt.set_ylabel("Count")
         axt.set_title("Throat-width distribution")
-        # reserve headroom so the legend never sits on the bars
         top = float(np.max(net["bin_counts"])) if len(net["bin_counts"]) else 1.0
         axt.set_ylim(0, top * 1.32)
         axt.legend(fontsize=8, loc="upper right", framealpha=0.9)
@@ -1275,7 +1258,6 @@ def make_overview_figure(cfg, res, net, fig=None):
         axt.text(0.5, 0.5, "throat analysis off", ha="center", va="center", transform=axt.transAxes)
         axt.set_xticks([]); axt.set_yticks([])
 
-    # realised grain-size distribution (diameter)
     d_mm = 2.0 * np.asarray(r) * 1e3
     matrix_d = d_mm[m == "matrix"]
     fine_d = d_mm[m == "fine"]
@@ -1291,16 +1273,16 @@ def make_overview_figure(cfg, res, net, fig=None):
         peak = max(peak, float(np.max(counts_f)))
     axd.set_xlabel("Grain diameter [mm]"); axd.set_ylabel("Count")
     axd.set_title("Grain-size distribution")
-    # reserve headroom so the legend never overlaps the tallest bars
     axd.set_ylim(0, peak * (1.18 + 0.09 * (bool(len(matrix_d)) + bool(len(fine_d)))))
     axd.legend(fontsize=8, loc="upper right", framealpha=0.9)
     return fig
 
 
+# cli path: render the overview figure to a png file.
 def plot_results(cfg, res, net, path_stem):
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     fig = make_overview_figure(cfg, res, net)
-    FigureCanvasAgg(fig)  
+    FigureCanvasAgg(fig)
     out = f"{path_stem}_overview.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
     return out

@@ -19,7 +19,7 @@ ApplicationWindow {
     height: 940
     minimumWidth: 1280
     minimumHeight: 720
-    title: "RSA Porous-Media Generator"
+    title: "RSA-Porous2D"
     color: "#eef1f6"
 
     property bool logOpen: false
@@ -116,7 +116,7 @@ ApplicationWindow {
 
     function tabTextColor(selected, hovered) {
         if (selected)
-            return "#1d4ed8"
+            return "#374151"
         return hovered ? "#202939" : "#667085"
     }
 
@@ -544,7 +544,7 @@ ApplicationWindow {
                     width: 3
                     height: 44
                     radius: 2
-                    color: parent.SplitHandle.pressed ? "#2f6fed"
+                    color: parent.SplitHandle.pressed ? "#374151"
                          : (parent.SplitHandle.hovered ? "#b7c3d4" : "#d4dce6")
                 }
             }
@@ -586,7 +586,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Domain"
-                                accent: "#2f6fed"
+                                accent: "#374151"
                                 sections: root.sectionsFor("Domain", null)
                             }
 
@@ -595,7 +595,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Grains"
-                                accent: "#b07d4f"
+                                accent: "#374151"
                                 sections: root.sectionsFor("Grains", null)
                             }
                         }
@@ -611,7 +611,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Heterogeneity"
-                                accent: "#0f766e"
+                                accent: "#374151"
                                 contextTitle: "Heterogeneity"
                                 hint: root.formValues["medium_type"] === "homogeneous"
                                       ? "pick a heterogeneity mode to unlock its options" : ""
@@ -630,7 +630,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Throat & diagnostics"
-                                accent: "#7c3aed"
+                                accent: "#374151"
                                 contextTitle: "Throat & Output"
                                 sections: root.sectionsFor("Throat & Output",
                                                            ["Minimum pore throat", "Diagnostics"])
@@ -641,7 +641,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Output"
-                                accent: "#d97706"
+                                accent: "#374151"
                                 contextTitle: "Throat & Output"
                                 sections: root.sectionsFor("Throat & Output", ["Output"])
                             }
@@ -651,7 +651,7 @@ ApplicationWindow {
                                 formValues: root.formValues
                                 controller: root
                                 title: "Run"
-                                accent: "#475569"
+                                accent: "#374151"
                                 sections: root.sectionsFor("Run", null)
                             }
                         }
@@ -725,9 +725,9 @@ ApplicationWindow {
                             width: domainChipText.implicitWidth + 20
                             height: 26
                             radius: 13
-                            color: root.activeFormTab === "Domain" ? "#dbeafe" : "transparent"
+                            color: root.activeFormTab === "Domain" ? "#e6e8ec" : "transparent"
                             border.width: 1
-                            border.color: root.activeFormTab === "Domain" ? "#bfdbfe" : "#d8e0ea"
+                            border.color: root.activeFormTab === "Domain" ? "#cbd2da" : "#d8e0ea"
 
                             Text {
                                 id: domainChipText
@@ -735,7 +735,7 @@ ApplicationWindow {
                                 text: "Domain"
                                 font.pixelSize: 12
                                 font.weight: Font.DemiBold
-                                color: root.activeFormTab === "Domain" ? "#1d4ed8" : "#667085"
+                                color: root.activeFormTab === "Domain" ? "#374151" : "#667085"
                             }
 
                             MouseArea {
@@ -750,9 +750,9 @@ ApplicationWindow {
                             width: psdChipText.implicitWidth + 20
                             height: 26
                             radius: 13
-                            color: root.activeFormTab !== "Domain" ? "#dbeafe" : "transparent"
+                            color: root.activeFormTab !== "Domain" ? "#e6e8ec" : "transparent"
                             border.width: 1
-                            border.color: root.activeFormTab !== "Domain" ? "#bfdbfe" : "#d8e0ea"
+                            border.color: root.activeFormTab !== "Domain" ? "#cbd2da" : "#d8e0ea"
 
                             Text {
                                 id: psdChipText
@@ -760,7 +760,7 @@ ApplicationWindow {
                                 text: "PSD"
                                 font.pixelSize: 12
                                 font.weight: Font.DemiBold
-                                color: root.activeFormTab !== "Domain" ? "#1d4ed8" : "#667085"
+                                color: root.activeFormTab !== "Domain" ? "#374151" : "#667085"
                             }
 
                             MouseArea {

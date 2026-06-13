@@ -101,7 +101,7 @@ Item {
             implicitHeight: 34
             radius: 7
             border.width: 1
-            border.color: textInput.activeFocus ? "#2f6fed" : (hoverHandler.hovered ? "#c8d3df" : "#dce4ee")
+            border.color: textInput.activeFocus ? "#374151" : (hoverHandler.hovered ? "#c8d3df" : "#dce4ee")
             color: "#f8fafc"
 
             function commitVisibleText() {
@@ -134,7 +134,7 @@ Item {
                 font.pixelSize: 15
                 color: "#202939"
                 selectedTextColor: "#ffffff"
-                selectionColor: "#2f6fed"
+                selectionColor: "#374151"
                 onTextChanged: parent.commitVisibleText()
                 onActiveFocusChanged: if (!activeFocus) parent.commitVisibleText()
                 Keys.onReturnPressed: { parent.commitVisibleText(); focus = false }
@@ -178,7 +178,7 @@ Item {
             background: Rectangle {
                 radius: 7
                 border.width: 1
-                border.color: parent.activeFocus ? "#2f6fed" : (parent.hovered ? "#c8d3df" : "#dce4ee")
+                border.color: parent.activeFocus ? "#374151" : (parent.hovered ? "#c8d3df" : "#dce4ee")
                 color: "#f8fafc"
             }
         }

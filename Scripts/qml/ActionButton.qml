@@ -20,7 +20,7 @@ Button {
         font.weight: variant === "primary" ? Font.DemiBold : Font.Medium
         color: {
             if (!control.enabled)
-                return variant === "primary" ? "#dbe8ff" : "#a5afbd"
+                return variant === "primary" ? "#e6e8ec" : "#a5afbd"
             if (variant === "danger")
                 return "#b42318"
             if (variant === "primary")
@@ -37,9 +37,9 @@ Button {
                       : "#e7ecf2"
         color: {
             if (!control.enabled)
-                return variant === "primary" ? "#9ebdf5" : "#f3f6fa"
+                return variant === "primary" ? "#c2c7cf" : "#f3f6fa"
             if (variant === "primary")
-                return control.down ? "#1d4ed8" : (control.hovered ? "#2563eb" : "#2f6fed")
+                return control.down ? "#374151" : (control.hovered ? "#374151" : "#374151")
             if (variant === "danger")
                 return control.down ? "#fee4e2" : (control.hovered ? "#fff1f0" : "#ffffff")
             return control.down ? "#edf1f6" : (control.hovered ? "#f7f9fc" : "#ffffff")

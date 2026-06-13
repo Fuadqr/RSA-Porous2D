@@ -10,7 +10,7 @@ ApplicationWindow {
     height: 880
     minimumWidth: 1040
     minimumHeight: 680
-    title: "RSA Porous-Media Generator"
+    title: "RSA-Porous2D"
     color: "#f4f6fa"
 
     property bool logOpen: false
@@ -20,7 +20,7 @@ ApplicationWindow {
 
     function tabTextColor(selected, hovered) {
         if (selected)
-            return "#1d4ed8"
+            return "#374151"
         return hovered ? "#202939" : "#667085"
     }
 
@@ -100,7 +100,7 @@ ApplicationWindow {
                     spacing: 2
 
                     Text {
-                        text: "RSA Porous Media"
+                        text: "RSA-Porous2D"
                         font.pixelSize: 26
                         font.weight: Font.Bold
                         color: "#111827"
@@ -147,7 +147,7 @@ ApplicationWindow {
                             }
 
                             background: Rectangle {
-                                color: parent.checked ? "#eaf1ff" : (parent.hovered ? "#eef2f7" : "transparent")
+                                color: parent.checked ? "#eceef2" : (parent.hovered ? "#eef2f7" : "transparent")
                                 radius: 7
                             }
                         }
