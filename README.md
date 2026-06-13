@@ -1,5 +1,7 @@
 # RSA-Porous2D
 
+![RSA-Porous2D](docs/images/RSA-Porous2D_icon_with_name.PNG)
+
 **RSA-Porous2D** is an open-source Python tool for generating reproducible two-dimensional porous media composed of polydisperse circular grains. It uses random sequential adsorption (RSA) to create controlled grain packings with user-defined grain-size distributions, target porosity, pore-throat controls, and heterogeneous regions.
 
 The software is intended for pore-scale CFD and CFD-DEM workflows where idealised but controllable porous-media geometries are needed. Generated geometries can be exported as solver-ready grain-centre files, including a constant out-of-plane coordinate for use in three-dimensional immersed-boundary solvers.
